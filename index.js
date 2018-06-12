@@ -154,6 +154,7 @@ let BaseContext = createNamedContext("Base", { baseuri: "/", basepath: "/" });
 // The main event, welcome to the show everybody.
 /**
  * 核心组件 Router https://reach.tech/router/api/Router
+ * BaseContext => RouteImpl => FocusContext => FocusImpl
  * @param props
  * @returns {*}
  * @constructor
@@ -184,12 +185,12 @@ class RouterImpl extends React.PureComponent {
       children,
       component = "div",
       baseuri,
-      ...domProps
+      ...domProps // 剩余的 props 都是 dom 属性
     } = this.props;
     let routes = React.Children.map(children, createRoute(basepath)); // [{ value, default, path }, ...]
     let { pathname } = location;
 
-    let match = pick(routes, pathname);
+    let match = pick(routes, pathname); // 计算出最匹配的组件 { route, uri, params }
 
     if (match) {
       let { params, uri, route, route: { value: element } } = match;
@@ -265,8 +266,16 @@ let focusHandlerCount = 0;
 class FocusHandlerImpl extends React.Component {
   state = {};
 
+  /**
+   * 这个生命周期会在 render 之前执行 参考：https://reactjs.org/docs/react-component.html#static-getderivedstatefromprops
+   * @param nextProps
+   * @param prevState
+   * @returns {{shouldFocus: boolean}} 返回的 object 会更新组件的 state
+   */
   static getDerivedStateFromProps(nextProps, prevState) {
     let initial = prevState.uri == null;
+    // 判断是否 focus
+    // 初始化 focus
     if (initial) {
       return {
         shouldFocus: true,
@@ -276,7 +285,7 @@ class FocusHandlerImpl extends React.Component {
       let myURIChanged = nextProps.uri !== prevState.uri;
       let navigatedUpToMe =
         prevState.location.pathname !== nextProps.location.pathname &&
-        nextProps.location.pathname === nextProps.uri;
+        nextProps.location.pathname === nextProps.uri; // prev 和 next 的 pathname 不同，切 pathname === uri 的时候（该组件渲染为可见状态） focus
       return {
         shouldFocus: myURIChanged || navigatedUpToMe,
         ...nextProps
@@ -285,7 +294,7 @@ class FocusHandlerImpl extends React.Component {
   }
 
   componentDidMount() {
-    focusHandlerCount++;
+    focusHandlerCount++; // 觉得这步和 componentWillUnmount 那步有点多余，后面再断点看看
     this.focus();
   }
 
@@ -338,7 +347,7 @@ class FocusHandlerImpl extends React.Component {
       component: Comp = "div",
       uri,
       location,
-      ...domProps
+      ...domPropsr
     } = this.props;
     return (
       <Comp
@@ -356,12 +365,20 @@ class FocusHandlerImpl extends React.Component {
   }
 }
 
+// 在较低版本的 React 项目中兼容 getDerivedStateFromProps 这个生命周期
 polyfill(FocusHandlerImpl);
 
 let k = () => {};
 
 ////////////////////////////////////////////////////////////////////////////////
+/**
+ *
+ * @param props
+ * @returns {*}
+ * @constructor
+ */
 let Link = props => (
+  // 如果作为 Route 子元素 将会得到 BaseContext.Provider 提供的 basepath, baseuri 从而实现 `相对路径`
   <BaseContext.Consumer>
     {({ basepath, baseuri }) => (
       <Location>
@@ -373,13 +390,13 @@ let Link = props => (
 
           return (
             <a
-              aria-current={isCurrent ? "page" : undefined}
+              aria-current={isCurrent ? "page" : undefined} {/* aria-current 无障碍阅读相关的属性  https://developer.mozilla.org/zh-CN/docs/Web/Accessibility/ARIA */}
               {...anchorProps}
               {...getProps({ isCurrent, isPartiallyCurrent, href, location })}
               href={href}
               onClick={event => {
                 if (anchorProps.onClick) anchorProps.onClick(event);
-                if (shouldNavigate(event)) {
+                if (shouldNavigate(event)) { // 如果判断为应该跳转，会阻止默认的跳转行为，而使用 navigate 这个方法跳
                   event.preventDefault();
                   navigate(href, { state, replace });
                 }
@@ -393,6 +410,7 @@ let Link = props => (
 );
 
 ////////////////////////////////////////////////////////////////////////////////
+// 重定向相关代码
 function RedirectRequest(uri) {
   this.uri = uri;
 }
@@ -520,10 +538,15 @@ let createRoute = basepath => element => {
   };
 };
 
+/**
+ * 判断是否应该跳转
+ * @param event
+ * @returns {boolean}
+ */
 let shouldNavigate = event =>
-  !event.defaultPrevented &&
-  event.button === 0 &&
-  !(event.metaKey || event.altKey || event.ctrlKey || event.shiftKey);
+  !event.defaultPrevented && // 判断 event 是否被 preventDefault() 的标识
+  event.button === 0 && // 左击鼠标
+  !(event.metaKey || event.altKey || event.ctrlKey || event.shiftKey); // 非 alt ctrl shift metaKey(windows command) 键
 
 ////////////////////////////////////////////////////////////////////////
 export {
