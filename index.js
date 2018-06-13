@@ -55,7 +55,7 @@ let LocationContext = createNamedContext("Location"); // => <LocationContext.Pro
  * @constructor
  */
 let Location = ({ children }) => (
-  // 如果 <LocationContext.Consumer> 是 <LocationContext.Provider value={}> 的子元素 context 为该 Provider 的 value，否则给她包一个默认的 Provider => LocationProvider 以提供 context
+  // 如果 <LocationContext.Consumer> 是 <LocationContext.Provider value={...}> 的子元素 context 为该 Provider 的 value，否则给她包一个默认的 Provider => LocationProvider 以提供 context({ navigate, location })
   <LocationContext.Consumer>
     {context => // context 提供 navigate 和 location 两个值
       context ? (
@@ -372,7 +372,7 @@ let k = () => {};
 
 ////////////////////////////////////////////////////////////////////////////////
 /**
- *
+ * https://reach.tech/router/api/Link
  * @param props
  * @returns {*}
  * @constructor
@@ -415,8 +415,17 @@ function RedirectRequest(uri) {
   this.uri = uri;
 }
 
+/**
+ * 判断 error 是否来自 redirect https://reach.tech/router/api/isRedirect
+ * @param o Error
+ * @returns {boolean}
+ */
 let isRedirect = o => o instanceof RedirectRequest;
 
+/**
+ * 抛出一个 redirect 的 错误 让 Location Provider 捕捉以实现跳转
+ * @param to
+ */
 let redirectTo = to => {
   throw new RedirectRequest(to);
 };
@@ -451,6 +460,13 @@ Redirect.propTypes = {
 };
 
 ////////////////////////////////////////////////////////////////////////////////
+/**
+ * 根据 path 匹配参数 (:item) 的值 https://reach.tech/router/api/Match
+ * @param path
+ * @param children
+ * @returns {*}
+ * @constructor
+ */
 let Match = ({ path, children }) => (
   <BaseContext.Consumer>
     {({ baseuri }) => (
